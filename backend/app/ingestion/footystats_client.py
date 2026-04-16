@@ -32,10 +32,11 @@ logger = logging.getLogger("ingestion.footystats")
 
 class FSLeague(BaseModel):
     """FootyStats league record."""
-    id: int = Field(..., alias="id")
+    id: int | None = Field(None, alias="id")
+    league_id: int | None = None
     name: str = ""
     country: str = ""
-    season: str = ""
+    season: str | list | None = None
     season_year: int | None = Field(None, alias="year")
     total_matches: int | None = None
     matches_played: int | None = None
@@ -44,6 +45,30 @@ class FSLeague(BaseModel):
     class Config:
         populate_by_name = True
         extra = "allow"
+
+    @property
+    def effective_id(self) -> int | None:
+        """Return whichever ID field the API provided."""
+        return self.id or self.league_id
+
+    @property
+    def current_season(self) -> str:
+        """Extract season string from various response formats."""
+        if isinstance(self.season, str):
+            return self.season
+        if isinstance(self.season, list) and self.season:
+            latest = self.season[-1]
+            if isinstance(latest, dict):
+                return str(latest.get("year", ""))
+            return str(latest)
+        return ""
+
+    @property
+    def season_list(self) -> list[dict]:
+        """Return season entries as a list of dicts."""
+        if isinstance(self.season, list):
+            return self.season
+        return []
 
 
 class FSTeam(BaseModel):
@@ -745,7 +770,7 @@ class FootyStatsClient:
                 tier,
                 settings.english_league_tiers.get(tier, "?"),
                 len(leagues),
-                [l.season for l in leagues[:5]],
+                [l.current_season for l in leagues[:5]],
             )
 
         return result

@@ -100,17 +100,21 @@ async def _load_leagues(
         tier_league_ids[tier] = []
 
         for fs_league in leagues:
-            tier_league_ids[tier].append(fs_league.id)
+            fs_id = fs_league.effective_id
+            if fs_id is None:
+                logger.warning("League %s has no ID, skipping.", fs_league.name)
+                continue
+            tier_league_ids[tier].append(fs_id)
 
-            if fs_league.id in existing_ids:
-                logger.debug("League %d already exists, skipping.", fs_league.id)
+            if fs_id in existing_ids:
+                logger.debug("League %d already exists, skipping.", fs_id)
                 continue
 
             league = League(
-                footystats_id=fs_league.id,
+                footystats_id=fs_id,
                 name=fs_league.name,
                 country=fs_league.country or "England",
-                season=fs_league.season or "",
+                season=fs_league.current_season or "",
                 season_year=fs_league.season_year or 0,
                 tier=tier,
                 total_matches=fs_league.total_matches,
