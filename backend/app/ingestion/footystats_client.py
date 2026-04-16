@@ -128,8 +128,8 @@ class FSMatch(BaseModel):
     odds_ft_1: float | None = None
     odds_ft_x: float | None = None
     odds_ft_2: float | None = None
-    odds_over25: float | None = None
-    odds_under25: float | None = None
+    odds_over25: float | None = Field(None, alias="odds_ft_over25")
+    odds_under25: float | None = Field(None, alias="odds_ft_under25")
     odds_btts_yes: float | None = None
     odds_btts_no: float | None = None
     home_ppg: float | None = None
