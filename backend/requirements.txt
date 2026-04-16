@@ -18,5 +18,5 @@ pytest==8.2.2
 pytest-asyncio==0.23.7
 black==24.4.2
 isort==5.13.2
-thefuzz[speedup]==0.22.1
-orjson==3.10.5
+thefuzz[speedup]>=0.22.1
+orjson>=3.10.5
