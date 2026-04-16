@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base resets ─── */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #1e2d3d #0a0a0f;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0a0a0f;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #1e2d3d;
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #2a3f55;
+  }
+
+  body {
+    overflow: hidden;
+  }
+
+  ::selection {
+    background: rgba(0, 212, 255, 0.25);
+    color: #e2e8f0;
+  }
+}
+
+/* ─── Component utilities ─── */
+@layer components {
+  .stat-card {
+    @apply bg-terminal-card border border-terminal-border px-4 py-3;
+  }
+
+  .stat-card-accent {
+    @apply bg-terminal-card border border-terminal-border-accent px-4 py-3;
+  }
+
+  .data-table {
+    @apply w-full text-sm font-data;
+  }
+
+  .data-table th {
+    @apply text-left text-text-muted text-xs uppercase tracking-wider px-3 py-2 border-b border-terminal-border;
+  }
+
+  .data-table td {
+    @apply px-3 py-2 border-b border-terminal-border/50 text-text-secondary;
+  }
+
+  .data-table tr:hover td {
+    @apply bg-terminal-elevated/50;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan
+           hover:bg-accent-cyan/20 transition-colors text-sm font-data;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red
+           hover:bg-accent-red/20 transition-colors text-sm font-data;
+  }
+
+  .btn-success {
+    @apply px-4 py-2 bg-accent-green/10 border border-accent-green/30 text-accent-green
+           hover:bg-accent-green/20 transition-colors text-sm font-data;
+  }
+
+  .edge-positive {
+    @apply text-accent-green;
+  }
+
+  .edge-marginal {
+    @apply text-accent-amber;
+  }
+
+  .edge-negative {
+    @apply text-accent-red;
+  }
+
+  .edge-neutral {
+    @apply text-text-muted;
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
+  }
+
+  .tab-active {
+    @apply text-accent-cyan border-b-2 border-accent-cyan;
+  }
+
+  .tab-inactive {
+    @apply text-text-muted hover:text-text-secondary border-b-2 border-transparent;
+  }
+}
+
+/* ─── Ticker animation ─── */
+.ticker-track {
+  display: flex;
+  animation: ticker-scroll 90s linear infinite;
+  white-space: nowrap;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
