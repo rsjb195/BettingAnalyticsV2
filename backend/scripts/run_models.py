@@ -67,8 +67,9 @@ def run_all_models():
             total_goals = sum((m.home_goals + m.away_goals) for m in completed)
             avg_goals = total_goals / (2 * len(completed))
 
-            # Generate model outputs for the most recent 100 matches in this league
-            recent = sorted(completed, key=lambda m: m.match_date, reverse=True)[:100]
+            # Generate model outputs for the most recent 100 matches with odds
+            with_odds = [m for m in completed if m.odds_home and m.odds_home > 0]
+            recent = sorted(with_odds, key=lambda m: m.match_date, reverse=True)[:100]
             league_generated = 0
 
             for match in recent:
