@@ -90,18 +90,24 @@ def run_all_models():
 
         logger.info("Total model outputs: %d", generated_total)
 
-        # 2. Calculate team metrics
+        # 2. Calculate team metrics (per league-season)
         logger.info("=== Calculating team metrics ===")
-        teams = session.execute(select(Team)).scalars().all()
         team_metrics_count = 0
-        for team in teams:
-            try:
-                calculate_team_metrics(team.id, session)
-                team_metrics_count += 1
-            except Exception as e:
-                logger.debug("Team metrics for %d failed: %s", team.id, e)
+        for league in leagues:
+            teams_in_league = session.execute(
+                select(Team).join(Match, Team.id == Match.home_team_id).where(
+                    Match.league_id == league.id
+                ).distinct()
+            ).scalars().all()
+
+            for team in teams_in_league:
+                try:
+                    calculate_team_metrics(team.id, league.id, league.season, session)
+                    team_metrics_count += 1
+                except Exception as e:
+                    logger.debug("Team metrics for %d in league %d failed: %s", team.id, league.id, e)
         session.commit()
-        logger.info("Team metrics calculated for %d teams.", team_metrics_count)
+        logger.info("Team metrics calculated for %d team-league combinations.", team_metrics_count)
 
         # 3. Calculate referee profiles
         logger.info("=== Calculating referee profiles ===")
