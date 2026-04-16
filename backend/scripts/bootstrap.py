@@ -96,14 +96,11 @@ async def _load_leagues(
     total_created = 0
 
     for tier in sorted(english_leagues.keys()):
-        leagues = english_leagues[tier][:max_seasons]
+        seasons = english_leagues[tier][:max_seasons]
         tier_league_ids[tier] = []
 
-        for fs_league in leagues:
-            fs_id = fs_league.effective_id
-            if fs_id is None:
-                logger.warning("League %s has no ID, skipping.", fs_league.name)
-                continue
+        for season_entry in seasons:
+            fs_id = season_entry["season_id"]
             tier_league_ids[tier].append(fs_id)
 
             if fs_id in existing_ids:
@@ -112,13 +109,11 @@ async def _load_leagues(
 
             league = League(
                 footystats_id=fs_id,
-                name=fs_league.name,
-                country=fs_league.country or "England",
-                season=fs_league.current_season or "",
-                season_year=fs_league.season_year or 0,
+                name=season_entry["name"],
+                country=season_entry["country"],
+                season=str(season_entry["year"]),
+                season_year=season_entry["year"],
                 tier=tier,
-                total_matches=fs_league.total_matches,
-                matches_played=fs_league.matches_played,
             )
             session.add(league)
             total_created += 1

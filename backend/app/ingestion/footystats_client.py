@@ -733,12 +733,20 @@ class FootyStatsClient:
     # Helpers
     # ------------------------------------------------------------------
 
-    async def discover_english_leagues(self) -> dict[int, list[FSLeague]]:
+    async def discover_english_leagues(self) -> dict[int, list[dict]]:
         """
         Discover FootyStats league IDs for all 4 English tiers across available seasons.
 
+        The /league-list endpoint returns leagues where each league has a `season`
+        array like [{"id": 1625, "year": 2020}, {"id": 2012, "year": 2021}, ...].
+        Each season's `id` is the league_id used for all other API calls.
+
         Returns:
-            Dict mapping tier (1-4) to list of FSLeague objects (one per season).
+            Dict mapping tier (1-4) to list of dicts with keys:
+                - season_id: int (the API league_id for that season)
+                - name: str
+                - country: str
+                - year: int
         """
         all_leagues = await self.get_league_list()
         settings = get_settings()
@@ -750,7 +758,11 @@ class FootyStatsClient:
             4: ["league two", "efl league two", "league 2"],
         }
 
-        result: dict[int, list[FSLeague]] = {1: [], 2: [], 3: [], 4: []}
+        # Exclusion keywords to avoid youth/women's/lower leagues
+        exclude_keywords = ["u18", "u21", "u23", "women", "northern premier", "counties",
+                           "premier league 2", "division one", "division two"]
+
+        result: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: []}
 
         for league in all_leagues:
             if not isinstance(league, FSLeague):
@@ -758,19 +770,32 @@ class FootyStatsClient:
             if league.country.lower() != "england":
                 continue
             league_name_lower = league.name.lower()
+
+            # Skip youth, women's, and non-main leagues
+            if any(ex in league_name_lower for ex in exclude_keywords):
+                continue
+
             for tier, keywords in tier_keywords.items():
                 if any(kw in league_name_lower for kw in keywords):
-                    result[tier].append(league)
+                    # Expand each season entry into a separate record
+                    for season_entry in league.season_list:
+                        if isinstance(season_entry, dict) and "id" in season_entry:
+                            result[tier].append({
+                                "season_id": season_entry["id"],
+                                "name": league.name,
+                                "country": league.country or "England",
+                                "year": season_entry.get("year", 0),
+                            })
                     break
 
-        for tier, leagues in result.items():
-            result[tier] = sorted(leagues, key=lambda l: l.season_year or 0, reverse=True)
+        for tier, seasons in result.items():
+            result[tier] = sorted(seasons, key=lambda s: s["year"], reverse=True)
             logger.info(
                 "Tier %d (%s): found %d season(s) — %s",
                 tier,
                 settings.english_league_tiers.get(tier, "?"),
-                len(leagues),
-                [l.current_season for l in leagues[:5]],
+                len(seasons),
+                [(s["season_id"], s["year"]) for s in seasons[:5]],
             )
 
         return result
