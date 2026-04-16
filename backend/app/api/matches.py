@@ -186,6 +186,8 @@ async def get_recent_analysed_matches(
     query = select(Match).where(
         Match.status == "complete",
         Match.id.in_(match_ids_with_outputs),
+        Match.odds_home.isnot(None),
+        Match.odds_home > 0,
     )
     if league_id is not None:
         query = query.where(Match.league_id == league_id)

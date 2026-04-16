@@ -17,7 +17,7 @@ export function formatPct(prob, decimals = 1) {
  * Format decimal odds to 2dp.
  */
 export function formatOdds(odds) {
-  if (odds === null || odds === undefined) return '—';
+  if (odds === null || odds === undefined || odds === 0) return '—';
   return odds.toFixed(2);
 }
 
