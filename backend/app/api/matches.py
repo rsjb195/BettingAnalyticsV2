@@ -169,6 +169,72 @@ async def list_matches(
     return {"total": total, "page": page, "per_page": per_page, "matches": items}
 
 
+@router.get("/recent-analysed")
+async def get_recent_analysed_matches(
+    limit: int = Query(50, ge=1, le=200),
+    league_id: Optional[int] = Query(None),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Get recent completed matches that have model outputs, newest first."""
+    from sqlalchemy.orm import selectinload
+
+    # Get match IDs that have model outputs
+    mo_query = select(ModelOutput.match_id).distinct()
+    mo_result = await session.execute(mo_query)
+    match_ids_with_outputs = {row[0] for row in mo_result.all()}
+
+    query = select(Match).where(
+        Match.status == "complete",
+        Match.id.in_(match_ids_with_outputs),
+    )
+    if league_id is not None:
+        query = query.where(Match.league_id == league_id)
+    query = query.order_by(desc(Match.match_date)).limit(limit)
+
+    result = await session.execute(query)
+    matches = result.scalars().all()
+
+    items = []
+    for m in matches:
+        home = await session.get(Team, m.home_team_id)
+        away = await session.get(Team, m.away_team_id)
+
+        mo_result = await session.execute(
+            select(ModelOutput)
+            .where(ModelOutput.match_id == m.id)
+            .order_by(desc(ModelOutput.generated_at))
+            .limit(1)
+        )
+        mo = mo_result.scalar_one_or_none()
+
+        items.append({
+            "id": m.id,
+            "league_id": m.league_id,
+            "home_team_id": m.home_team_id,
+            "away_team_id": m.away_team_id,
+            "home_team_name": (home.clean_name or home.name) if home else None,
+            "away_team_name": (away.clean_name or away.name) if away else None,
+            "match_date": m.match_date.isoformat() if m.match_date else None,
+            "home_goals": m.home_goals,
+            "away_goals": m.away_goals,
+            "odds_home": m.odds_home,
+            "odds_draw": m.odds_draw,
+            "odds_away": m.odds_away,
+            "model": {
+                "our_home_prob": mo.our_home_prob,
+                "our_draw_prob": mo.our_draw_prob,
+                "our_away_prob": mo.our_away_prob,
+                "home_edge": mo.home_edge_pct,
+                "draw_edge": mo.draw_edge_pct,
+                "away_edge": mo.away_edge_pct,
+                "best_value": mo.best_value_outcome,
+                "confidence": mo.confidence_rating,
+            } if mo else None,
+        })
+
+    return {"count": len(items), "fixtures": items}
+
+
 @router.get("/upcoming")
 async def get_upcoming_matches(
     days: int = Query(7, ge=1, le=30),

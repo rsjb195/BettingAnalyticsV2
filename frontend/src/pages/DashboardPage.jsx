@@ -10,6 +10,7 @@ import { formatOdds, formatPct, formatDate } from '../utils/formatters';
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [upcoming, setUpcoming] = useState([]);
+  const [analysed, setAnalysed] = useState([]);
   const [performance, setPerformance] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -17,11 +18,13 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [upcomingRes, perfRes] = await Promise.all([
+        const [upcomingRes, analysedRes, perfRes] = await Promise.all([
           axios.get(`${API_BASE}/matches/upcoming?days=7`).catch(() => ({ data: { fixtures: [] } })),
+          axios.get(`${API_BASE}/matches/recent-analysed?limit=50`).catch(() => ({ data: { fixtures: [] } })),
           axios.get(`${API_BASE}/performance`).catch(() => ({ data: null })),
         ]);
         setUpcoming(upcomingRes.data.fixtures || []);
+        setAnalysed(analysedRes.data.fixtures || []);
         setPerformance(perfRes.data);
       } catch {
         // Handled by individual catch blocks above
@@ -32,7 +35,11 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const valueOpps = upcoming.filter(
+  // Use upcoming if available, otherwise show recent analysed
+  const displayFixtures = upcoming.length > 0 ? upcoming : analysed;
+  const isShowingRecent = upcoming.length === 0 && analysed.length > 0;
+
+  const valueOpps = displayFixtures.filter(
     (f) => f.model && Math.max(f.model.home_edge || 0, f.model.draw_edge || 0, f.model.away_edge || 0) > 0.02
   );
 
@@ -71,9 +78,9 @@ export default function DashboardPage() {
       {/* Top stat cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard
-          label="Upcoming Fixtures"
-          value={upcoming.length}
-          subValue="Next 7 days"
+          label={isShowingRecent ? "Analysed Matches" : "Upcoming Fixtures"}
+          value={displayFixtures.length}
+          subValue={isShowingRecent ? "With model outputs" : "Next 7 days"}
           accent="cyan"
         />
         <StatCard
@@ -83,16 +90,20 @@ export default function DashboardPage() {
           accent="green"
         />
         <StatCard
-          label="Model Accuracy"
-          value={performance ? `${performance.win_rate.toFixed(1)}%` : '—'}
-          subValue="Rolling selections"
+          label="Model Coverage"
+          value={displayFixtures.filter((f) => f.model).length}
+          subValue="Matches with predictions"
           accent="amber"
         />
         <StatCard
-          label="Net P&L"
-          value={performance ? `$${performance.net_pnl.toFixed(2)}` : '—'}
-          subValue={performance ? `ROI: ${performance.roi_pct}%` : ''}
-          accent={performance && performance.net_pnl >= 0 ? 'green' : 'red'}
+          label="Avg Confidence"
+          value={
+            displayFixtures.filter((f) => f.model).length > 0
+              ? (displayFixtures.filter((f) => f.model).reduce((s, f) => s + (f.model.confidence || 0), 0) / displayFixtures.filter((f) => f.model).length).toFixed(1)
+              : '—'
+          }
+          subValue="Model rating (1-10)"
+          accent="purple"
         />
       </div>
 
@@ -100,7 +111,7 @@ export default function DashboardPage() {
       <div className="stat-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-data font-semibold text-text-primary uppercase tracking-wider">
-            Upcoming Fixtures
+            {isShowingRecent ? 'Recent Analysed Matches' : 'Upcoming Fixtures'}
           </h2>
           <button
             onClick={() => navigate('/slate')}
@@ -115,7 +126,7 @@ export default function DashboardPage() {
         ) : (
           <DataTable
             columns={fixtureColumns}
-            data={upcoming}
+            data={displayFixtures}
             onRowClick={(row) => navigate(`/teams/${row.home_team_id}`)}
           />
         )}
@@ -155,9 +166,9 @@ export default function DashboardPage() {
           <h3 className="text-xs font-data font-semibold text-text-muted uppercase tracking-wider mb-3">
             Referee Alerts
           </h3>
-          {upcoming.filter((f) => f.referee_avg_cards && f.referee_avg_cards > 4).length > 0 ? (
+          {displayFixtures.filter((f) => f.referee_avg_cards && f.referee_avg_cards > 4).length > 0 ? (
             <div className="space-y-2">
-              {upcoming.filter((f) => f.referee_avg_cards && f.referee_avg_cards > 4).slice(0, 5).map((f, i) => (
+              {displayFixtures.filter((f) => f.referee_avg_cards && f.referee_avg_cards > 4).slice(0, 5).map((f, i) => (
                 <div key={i} className="flex items-center justify-between py-1 border-b border-terminal-border/30">
                   <span className="text-xs font-data text-text-secondary">
                     {f.home_team_name} v {f.away_team_name}
