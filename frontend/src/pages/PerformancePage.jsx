@@ -1,11 +1,76 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import StatCard from '../components/shared/StatCard';
-import DataTable from '../components/shared/DataTable';
 import { API_BASE } from '../utils/constants';
 import { COLOURS } from '../utils/colours';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, formatOdds } from '../utils/formatters';
+
+function AccumulatorLog({ accumulators }) {
+  const [expandedId, setExpandedId] = useState(null);
+
+  if (!accumulators?.length) {
+    return <div className="text-text-muted text-xs font-data py-4">No accumulators saved yet</div>;
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="grid grid-cols-7 gap-2 px-2 py-1.5 border-b border-terminal-border text-[10px] font-data text-text-muted uppercase tracking-wider">
+        <span>Date</span>
+        <span>Legs</span>
+        <span className="text-right">Odds</span>
+        <span className="text-right">Stake</span>
+        <span className="text-right">Pot. Return</span>
+        <span className="text-right">Result</span>
+        <span className="text-right">Return</span>
+      </div>
+      {accumulators.map((a) => (
+        <div key={a.id}>
+          <button
+            onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+            className="w-full grid grid-cols-7 gap-2 px-2 py-2 border-b border-terminal-border/30 hover:bg-terminal-elevated/50 transition-colors text-xs font-data items-center"
+          >
+            <span className="flex items-center gap-1 text-text-secondary">
+              {expandedId === a.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              {formatDate(a.slate_date)}
+            </span>
+            <span className="text-text-secondary">{a.legs?.length || 0} legs</span>
+            <span className="text-right tabular-nums text-text-secondary">{a.actual_odds?.toFixed(1)}</span>
+            <span className="text-right tabular-nums text-text-secondary">{formatCurrency(a.stake)}</span>
+            <span className="text-right tabular-nums text-text-secondary">{formatCurrency(a.potential_return)}</span>
+            <span className={`text-right font-bold ${a.result === 'win' ? 'text-accent-green' : a.result === 'loss' ? 'text-accent-red' : 'text-accent-amber'}`}>
+              {a.result?.toUpperCase()}
+            </span>
+            <span className="text-right tabular-nums text-text-secondary">{formatCurrency(a.actual_return)}</span>
+          </button>
+          {expandedId === a.id && a.legs && (
+            <div className="bg-terminal-elevated/30 border-b border-terminal-border/30 px-4 py-2 space-y-1.5">
+              {a.legs.map((leg, i) => (
+                <div key={i} className="flex items-center justify-between text-[11px] font-data pl-4 border-l-2 border-accent-cyan/30">
+                  <span className="text-text-secondary">
+                    {leg.home_team} v {leg.away_team}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-accent-cyan font-bold uppercase">{leg.selection}</span>
+                    <span className="text-text-muted tabular-nums">@ {formatOdds(leg.odds)}</span>
+                    <span className="text-text-muted tabular-nums">Prob: {leg.our_probability ? (leg.our_probability * 100).toFixed(1) + '%' : '—'}</span>
+                    {leg.edge_pct != null && (
+                      <span className={`tabular-nums ${leg.edge_pct > 0 ? 'text-accent-green' : 'text-accent-red'}`}>
+                        Edge: {(leg.edge_pct * 100).toFixed(1)}%
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function PerformancePage() {
   const [performance, setPerformance] = useState(null);
@@ -82,28 +147,10 @@ export default function PerformancePage() {
         </div>
       )}
 
-      {/* Accumulator log */}
+      {/* Accumulator log with expandable legs */}
       <div className="stat-card">
         <h3 className="text-xs font-data text-text-muted uppercase tracking-wider mb-3">Selection Log</h3>
-        <DataTable
-          columns={[
-            { key: 'slate_date', label: 'Date', render: (v) => formatDate(v) },
-            { key: 'legs', label: 'Legs', render: (v) => `${v?.length || 0} legs` },
-            { key: 'actual_odds', label: 'Odds', align: 'right', render: (v) => v?.toFixed(1) },
-            { key: 'stake', label: 'Stake', align: 'right', render: (v) => formatCurrency(v) },
-            { key: 'potential_return', label: 'Pot. Return', align: 'right', render: (v) => formatCurrency(v) },
-            {
-              key: 'result', label: 'Result', align: 'right',
-              render: (v) => (
-                <span className={`font-bold ${v === 'win' ? 'text-accent-green' : v === 'loss' ? 'text-accent-red' : 'text-accent-amber'}`}>
-                  {v?.toUpperCase()}
-                </span>
-              ),
-            },
-            { key: 'actual_return', label: 'Return', align: 'right', render: (v) => formatCurrency(v) },
-          ]}
-          data={accLog}
-        />
+        <AccumulatorLog accumulators={accLog} />
       </div>
     </div>
   );
