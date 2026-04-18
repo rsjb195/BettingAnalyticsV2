@@ -144,7 +144,7 @@ class FSMatch(BaseModel):
 
 class FSMatchDetail(FSMatch):
     """FootyStats match detail (single match with H2H and full stats)."""
-    h2h: list[dict] | None = None
+    h2h: list[dict] | dict | None = None
     scoring_first: dict | None = None
     card_timings: dict | None = None
 
@@ -158,8 +158,9 @@ class FSPlayer(BaseModel):
     id: int
     full_name: str = ""
     known_as: str = ""
-    team_id: int | None = None
-    league_id: int | None = None
+    team_id: int | None = Field(None, alias="club_team_id")
+    league_id: int | None = Field(None, alias="competition_id")
+    season_year: int | None = Field(None, alias="starting_year")
     season: str = ""
     position: str = ""
     age: int | None = None
@@ -589,18 +590,7 @@ class FootyStatsClient:
                 return []
         if not isinstance(data, list):
             return []
-        players = []
-        for p in data:
-            if not isinstance(p, dict):
-                continue
-            # Normalise team_id: API may use 'club_team_id' or 'team' dict
-            if "team_id" not in p or p.get("team_id") is None:
-                if "club_team_id" in p:
-                    p = {**p, "team_id": p["club_team_id"]}
-                elif isinstance(p.get("team"), dict):
-                    p = {**p, "team_id": p["team"].get("id")}
-            players.append(FSPlayer(**p))
-        return players
+        return [FSPlayer(**p) for p in data if isinstance(p, dict)]
 
     async def get_league_referees(self, league_id: int) -> list[FSReferee]:
         """
