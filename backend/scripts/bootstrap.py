@@ -315,12 +315,14 @@ async def _load_players(client: FootyStatsClient, session, tier_league_ids: dict
 
         fs_players = await client.get_league_players(fs_league_id)
 
+        unmatched_teams: set[int | None] = set()
         for fp in fs_players:
             if fp.id in existing_ids:
                 continue
 
             team_db_id = team_fs_to_db.get(fp.team_id)
             if team_db_id is None:
+                unmatched_teams.add(fp.team_id)
                 continue
 
             player = Player(
@@ -358,6 +360,12 @@ async def _load_players(client: FootyStatsClient, session, tier_league_ids: dict
             existing_ids.add(fp.id)
             total_created += 1
 
+        if unmatched_teams:
+            logger.warning(
+                "League %d: %d players skipped — team IDs not in DB: %s",
+                fs_league_id, len(unmatched_teams),
+                sorted(t for t in unmatched_teams if t is not None)[:10],
+            )
         session.commit()
 
     logger.info("Players: %d created.", total_created)

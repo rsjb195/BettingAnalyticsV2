@@ -106,20 +106,20 @@ class FSMatch(BaseModel):
     away_goals_ht: int | None = Field(None, alias="ht_goals_team_b")
     home_xg: float | None = Field(None, alias="team_a_xg")
     away_xg: float | None = Field(None, alias="team_b_xg")
-    home_shots: int | None = None
-    away_shots: int | None = None
-    home_shotsOnTarget: int | None = None
-    away_shotsOnTarget: int | None = None
-    home_possession: float | None = None
-    away_possession: float | None = None
-    home_fouls: int | None = None
-    away_fouls: int | None = None
-    home_yellow_cards: int | None = None
-    away_yellow_cards: int | None = None
-    home_red_cards: int | None = None
-    away_red_cards: int | None = None
-    home_corners: int | None = None
-    away_corners: int | None = None
+    home_shots: int | None = Field(None, alias="team_a_shots")
+    away_shots: int | None = Field(None, alias="team_b_shots")
+    home_shotsOnTarget: int | None = Field(None, alias="team_a_shotsontarget")
+    away_shotsOnTarget: int | None = Field(None, alias="team_b_shotsontarget")
+    home_possession: float | None = Field(None, alias="team_a_possession")
+    away_possession: float | None = Field(None, alias="team_b_possession")
+    home_fouls: int | None = Field(None, alias="team_a_fouls")
+    away_fouls: int | None = Field(None, alias="team_b_fouls")
+    home_yellow_cards: int | None = Field(None, alias="team_a_yellow_cards")
+    away_yellow_cards: int | None = Field(None, alias="team_b_yellow_cards")
+    home_red_cards: int | None = Field(None, alias="team_a_red_cards")
+    away_red_cards: int | None = Field(None, alias="team_b_red_cards")
+    home_corners: int | None = Field(None, alias="team_a_corners")
+    away_corners: int | None = Field(None, alias="team_b_corners")
     btts_potential: float | None = None
     o25_potential: float | None = None
     referee_id: int | None = None
@@ -578,9 +578,29 @@ class FootyStatsClient:
             List of FSPlayer objects.
         """
         data = await self._request("/league-players", {"league_id": league_id})
+        # Handle dict envelope: {"players": [...]} or {"data": [...]}
+        if isinstance(data, dict):
+            for key in ("players", "data", "results"):
+                if key in data and isinstance(data[key], list):
+                    data = data[key]
+                    break
+            else:
+                logger.warning("Unexpected /league-players response shape: keys=%s", list(data.keys())[:10])
+                return []
         if not isinstance(data, list):
             return []
-        return [FSPlayer(**p) if isinstance(p, dict) else p for p in data]
+        players = []
+        for p in data:
+            if not isinstance(p, dict):
+                continue
+            # Normalise team_id: API may use 'club_team_id' or 'team' dict
+            if "team_id" not in p or p.get("team_id") is None:
+                if "club_team_id" in p:
+                    p = {**p, "team_id": p["club_team_id"]}
+                elif isinstance(p.get("team"), dict):
+                    p = {**p, "team_id": p["team"].get("id")}
+            players.append(FSPlayer(**p))
+        return players
 
     async def get_league_referees(self, league_id: int) -> list[FSReferee]:
         """
