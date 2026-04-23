@@ -6,15 +6,21 @@ import EdgeIndicator from '../components/shared/EdgeIndicator';
 import { API_BASE } from '../utils/constants';
 import { formatDate, formatOdds, formatPct } from '../utils/formatters';
 
+// FootyStats returns -1 for unavailable stats — treat as null
+const val = (v) => (v == null || v === -1) ? null : v;
+
 function StatBar({ label, home, away, format = (v) => v ?? '—' }) {
-  const total = (home ?? 0) + (away ?? 0);
-  const homePct = total > 0 ? ((home ?? 0) / total) * 100 : 50;
+  const h = val(home);
+  const a = val(away);
+  if (h == null && a == null) return null;
+  const total = (h ?? 0) + (a ?? 0);
+  const homePct = total > 0 ? ((h ?? 0) / total) * 100 : 50;
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-[10px] font-data text-text-muted">
-        <span>{format(home)}</span>
+        <span>{format(h)}</span>
         <span className="uppercase tracking-wider text-center">{label}</span>
-        <span>{format(away)}</span>
+        <span>{format(a)}</span>
       </div>
       <div className="flex h-1.5 rounded-none overflow-hidden">
         <div className="bg-accent-cyan transition-all" style={{ width: `${homePct}%` }} />
@@ -25,11 +31,13 @@ function StatBar({ label, home, away, format = (v) => v ?? '—' }) {
 }
 
 function StatRow({ label, home, away }) {
+  const h = val(home);
+  const a = val(away);
   return (
     <div className="flex items-center justify-between py-1.5 border-b border-terminal-border/20 text-xs font-data">
-      <span className="tabular-nums text-text-primary w-10 text-left">{home ?? '—'}</span>
+      <span className="tabular-nums text-text-primary w-10 text-left">{h ?? '—'}</span>
       <span className="text-text-muted uppercase tracking-wider text-[10px] text-center flex-1">{label}</span>
-      <span className="tabular-nums text-text-primary w-10 text-right">{away ?? '—'}</span>
+      <span className="tabular-nums text-text-primary w-10 text-right">{a ?? '—'}</span>
     </div>
   );
 }
@@ -53,13 +61,24 @@ export default function MatchDetailPage() {
   if (error || !match) return <div className="text-accent-red font-data text-sm py-12 text-center">{error || 'Match not found'}</div>;
 
   const mo = match.model_output;
-  const hasResult = match.home_goals != null && match.away_goals != null;
-  const hasStats = match.home_shots != null || match.home_possession != null || match.home_xg != null;
+  const hasResult = val(match.home_goals) != null && val(match.away_goals) != null;
+
+  // Only show match stats section if at least one real stat is available
+  const hasStats = [
+    val(match.home_xg), val(match.home_possession), val(match.home_shots),
+    val(match.home_shots_on_target), val(match.home_corners), val(match.home_fouls),
+    val(match.home_yellow_cards),
+  ].some((v) => v != null);
+
+  const attendance = val(match.attendance);
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto">
       {/* Back */}
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-xs font-data text-text-muted hover:text-text-primary transition-colors">
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1.5 text-xs font-data text-text-muted hover:text-text-primary transition-colors"
+      >
         <ArrowLeft size={14} /> Back
       </button>
 
@@ -69,7 +88,6 @@ export default function MatchDetailPage() {
           {formatDate(match.match_date)} · GW{match.game_week || '?'} · {match.season}
         </div>
 
-        {/* Score / teams */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-right">
             <div className="text-lg font-ui font-bold text-text-primary">{match.home_team_name}</div>
@@ -80,11 +98,11 @@ export default function MatchDetailPage() {
             {hasResult ? (
               <>
                 <div className="text-3xl font-data font-bold text-text-primary tabular-nums">
-                  {match.home_goals} – {match.away_goals}
+                  {val(match.home_goals)} – {val(match.away_goals)}
                 </div>
-                {match.home_goals_ht != null && (
+                {val(match.home_goals_ht) != null && (
                   <div className="text-[10px] font-data text-text-muted mt-1">
-                    HT: {match.home_goals_ht} – {match.away_goals_ht}
+                    HT: {val(match.home_goals_ht)} – {val(match.away_goals_ht)}
                   </div>
                 )}
               </>
@@ -99,12 +117,11 @@ export default function MatchDetailPage() {
           </div>
         </div>
 
-        {/* Referee + stadium */}
-        {(match.referee_name || match.stadium) && (
+        {(match.referee_name || match.stadium || attendance) && (
           <div className="mt-3 text-[10px] font-data text-text-muted flex gap-4 justify-center">
             {match.referee_name && <span>REF: {match.referee_name}</span>}
             {match.stadium && <span>@ {match.stadium}</span>}
-            {match.attendance && <span>{match.attendance.toLocaleString('en-GB')} att.</span>}
+            {attendance != null && <span>{attendance.toLocaleString('en-GB')} att.</span>}
           </div>
         )}
       </div>
@@ -118,7 +135,7 @@ export default function MatchDetailPage() {
           <div className="grid grid-cols-3 gap-4">
             {[
               { label: 'Home Win', prob: mo.our_home_prob, mktOdds: match.odds_home, edge: mo.home_edge },
-              { label: 'Draw', prob: mo.our_draw_prob, mktOdds: match.odds_draw, edge: mo.draw_edge },
+              { label: 'Draw',     prob: mo.our_draw_prob, mktOdds: match.odds_draw, edge: mo.draw_edge },
               { label: 'Away Win', prob: mo.our_away_prob, mktOdds: match.odds_away, edge: mo.away_edge },
             ].map(({ label, prob, mktOdds, edge }) => (
               <div key={label} className="bg-terminal-elevated border border-terminal-border p-3 text-center space-y-2">
@@ -146,18 +163,10 @@ export default function MatchDetailPage() {
             <span>{match.away_team_name}</span>
           </div>
           <div className="space-y-2">
-            {match.home_xg != null && (
-              <StatBar label="xG" home={match.home_xg} away={match.away_xg} format={(v) => v?.toFixed(2) ?? '—'} />
-            )}
-            {match.home_possession != null && (
-              <StatBar label="Possession %" home={match.home_possession} away={match.away_possession} format={(v) => v != null ? `${v}%` : '—'} />
-            )}
-            {match.home_shots != null && (
-              <StatBar label="Shots" home={match.home_shots} away={match.away_shots} />
-            )}
-            {match.home_shots_on_target != null && (
-              <StatBar label="Shots on Target" home={match.home_shots_on_target} away={match.away_shots_on_target} />
-            )}
+            <StatBar label="xG" home={match.home_xg} away={match.away_xg} format={(v) => v?.toFixed(2) ?? '—'} />
+            <StatBar label="Possession %" home={match.home_possession} away={match.away_possession} format={(v) => v != null ? `${v}%` : '—'} />
+            <StatBar label="Shots" home={match.home_shots} away={match.away_shots} />
+            <StatBar label="Shots on Target" home={match.home_shots_on_target} away={match.away_shots_on_target} />
             <div className="pt-2 space-y-0">
               <StatRow label="Corners" home={match.home_corners} away={match.away_corners} />
               <StatRow label="Fouls" home={match.home_fouls} away={match.away_fouls} />
@@ -181,7 +190,7 @@ export default function MatchDetailPage() {
             { label: 'O2.5', v: match.odds_over25 },
             { label: 'U2.5', v: match.odds_under25 },
             { label: 'BTTS Y', v: match.odds_btts_yes },
-          ].filter(x => x.v).map(({ label, v }) => (
+          ].filter(({ v }) => val(v) != null).map(({ label, v }) => (
             <div key={label} className="text-center">
               <div className="text-[10px] font-data text-text-muted">{label}</div>
               <div className="text-sm font-data font-bold text-text-primary tabular-nums">{formatOdds(v)}</div>
