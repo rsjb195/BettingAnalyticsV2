@@ -146,19 +146,20 @@ async def backfill_via_detail(limit: int = 0, league_db_id: int | None = None):
     session = get_sync_session()
 
     try:
+        # Filter on corners NULL — shots may be populated but corners/fouls/cards may not be
         q = select(Match).where(
             Match.status == "complete",
             Match.home_goals.isnot(None),
-            Match.home_shots.is_(None),
+            Match.home_corners.is_(None),
             Match.footystats_id.isnot(None),
-        )
+        ).order_by(Match.match_date.desc())
         if league_db_id:
             q = q.where(Match.league_id == league_db_id)
 
         total_missing = session.execute(
             select(func.count()).select_from(q.subquery())
         ).scalar()
-        logger.info("Matches missing shots data: %d", total_missing)
+        logger.info("Matches missing corners/detail stats: %d", total_missing)
 
         if limit:
             q = q.limit(limit)
