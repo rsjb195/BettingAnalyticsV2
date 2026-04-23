@@ -7,6 +7,7 @@ import PlayersPage from './pages/PlayersPage';
 import RefereesPage from './pages/RefereesPage';
 import LeaguePage from './pages/LeaguePage';
 import PerformancePage from './pages/PerformancePage';
+import MatchDetailPage from './pages/MatchDetailPage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/model/edge" element={<DashboardPage />} />
         <Route path="/performance" element={<PerformancePage />} />
         <Route path="/accumulator/log" element={<PerformancePage />} />
+        <Route path="/matches/:matchId" element={<MatchDetailPage />} />
       </Routes>
     </Layout>
   );

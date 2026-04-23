@@ -110,6 +110,19 @@ export default function DashboardPage() {
   const fixtureColumns = [
     { key: 'match_date', label: 'Date', render: (v) => formatDate(v) },
     { key: 'home_team_name', label: 'Home' },
+    {
+      key: '_score', label: 'Score', align: 'center',
+      render: (_, row) => {
+        if (row.home_goals != null && row.away_goals != null) {
+          return (
+            <span className="font-data tabular-nums font-bold text-text-primary">
+              {row.home_goals} – {row.away_goals}
+            </span>
+          );
+        }
+        return <span className="text-text-muted">vs</span>;
+      },
+    },
     { key: 'away_team_name', label: 'Away' },
     {
       key: 'odds_home', label: 'Mkt H', align: 'right',
@@ -191,7 +204,7 @@ export default function DashboardPage() {
           <DataTable
             columns={fixtureColumns}
             data={displayFixtures}
-            onRowClick={(row) => navigate(`/teams/${row.home_team_id}`)}
+            onRowClick={(row) => navigate(`/matches/${row.id}`)}
           />
         )}
       </div>
