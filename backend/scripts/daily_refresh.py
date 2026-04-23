@@ -26,6 +26,7 @@ from backend.app.models.league import League
 from backend.app.models.match import Match
 from backend.app.models.team import Team
 from backend.app.models.referee import Referee, RefereeMatchLog
+from backend.app.models.accumulator import AccumulatorLog
 
 import backend.app.models  # noqa: F401
 
@@ -269,6 +270,86 @@ async def _refresh_league_matches(client: FootyStatsClient, session) -> int:
     return total_updated
 
 
+def _settle_accumulators(session) -> int:
+    """
+    Settle all pending accumulators by checking leg match results.
+
+    Win:  every leg's match is complete and the selection was correct.
+    Loss: any leg's match is complete and the selection was wrong.
+    Partial: at least one leg correct, at least one wrong (marks as loss).
+    Still pending: at least one leg's match is not yet complete.
+    """
+    pending = session.execute(
+        select(AccumulatorLog).where(AccumulatorLog.result == "pending")
+    ).scalars().all()
+
+    if not pending:
+        logger.info("No pending accumulators to settle.")
+        return 0
+
+    # Load all match IDs referenced by pending accumulators in one query
+    match_ids = set()
+    for acca in pending:
+        for leg in (acca.legs or []):
+            if leg.get("match_id"):
+                match_ids.add(leg["match_id"])
+
+    matches = {
+        m.id: m
+        for m in session.execute(
+            select(Match).where(Match.id.in_(match_ids))
+        ).scalars().all()
+    }
+
+    settled = 0
+    now = datetime.utcnow()
+
+    for acca in pending:
+        legs = acca.legs or []
+        if not legs:
+            continue
+
+        leg_results = []
+        all_complete = True
+
+        for leg in legs:
+            mid = leg.get("match_id")
+            selection = leg.get("selection")
+            match = matches.get(mid)
+
+            if match is None or match.status != "complete" or match.home_goals is None:
+                all_complete = False
+                leg_results.append(None)
+                continue
+
+            hg, ag = match.home_goals, match.away_goals
+            if selection == "home":
+                leg_results.append(hg > ag)
+            elif selection == "away":
+                leg_results.append(ag > hg)
+            elif selection == "draw":
+                leg_results.append(hg == ag)
+            else:
+                leg_results.append(False)
+
+        # Only settle when every match is done
+        if not all_complete:
+            continue
+
+        acca.settled_at = now
+        if all(leg_results):
+            acca.result = "win"
+            acca.actual_return = round(acca.stake * acca.actual_odds, 2)
+        else:
+            acca.result = "loss"
+            acca.actual_return = 0.0
+        settled += 1
+
+    session.commit()
+    logger.info("Accumulators settled: %d", settled)
+    return settled
+
+
 async def run_daily_refresh() -> None:
     """Execute the daily data refresh pipeline."""
     _setup_logging()
@@ -291,12 +372,15 @@ async def run_daily_refresh() -> None:
             todays_count = await _refresh_todays_matches(client, session)
             league_count = await _refresh_league_matches(client, session)
 
+        settled_count = _settle_accumulators(session)
+
         ingestion_log.status = "success"
         ingestion_log.completed_at = datetime.utcnow()
         ingestion_log.records_updated = todays_count + league_count
         ingestion_log.details = {
             "todays_matches": todays_count,
             "league_updates": league_count,
+            "accumulators_settled": settled_count,
         }
         session.commit()
 
