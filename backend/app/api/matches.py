@@ -389,6 +389,11 @@ async def get_saturday_slate(session: AsyncSession = Depends(get_async_session))
     }
 
 
+def _clean(v):
+    """Convert FootyStats sentinel -1 to None."""
+    return None if v == -1 else v
+
+
 @router.get("/{match_id}")
 async def get_match_detail(match_id: int, session: AsyncSession = Depends(get_async_session)):
     """Full match detail with all stats and model output."""
@@ -419,30 +424,30 @@ async def get_match_detail(match_id: int, session: AsyncSession = Depends(get_as
         status=m.status,
         home_goals=m.home_goals,
         away_goals=m.away_goals,
-        home_goals_ht=m.home_goals_ht,
-        away_goals_ht=m.away_goals_ht,
-        home_xg=m.home_xg,
-        away_xg=m.away_xg,
-        home_shots=m.home_shots,
-        away_shots=m.away_shots,
-        home_shots_on_target=m.home_shots_on_target,
-        away_shots_on_target=m.away_shots_on_target,
-        home_possession=m.home_possession,
-        away_possession=m.away_possession,
-        home_fouls=m.home_fouls,
-        away_fouls=m.away_fouls,
-        home_yellow_cards=m.home_yellow_cards,
-        away_yellow_cards=m.away_yellow_cards,
-        home_red_cards=m.home_red_cards,
-        away_red_cards=m.away_red_cards,
-        home_corners=m.home_corners,
-        away_corners=m.away_corners,
+        home_goals_ht=_clean(m.home_goals_ht),
+        away_goals_ht=_clean(m.away_goals_ht),
+        home_xg=_clean(m.home_xg),
+        away_xg=_clean(m.away_xg),
+        home_shots=_clean(m.home_shots),
+        away_shots=_clean(m.away_shots),
+        home_shots_on_target=_clean(m.home_shots_on_target),
+        away_shots_on_target=_clean(m.away_shots_on_target),
+        home_possession=_clean(m.home_possession),
+        away_possession=_clean(m.away_possession),
+        home_fouls=_clean(m.home_fouls),
+        away_fouls=_clean(m.away_fouls),
+        home_yellow_cards=_clean(m.home_yellow_cards),
+        away_yellow_cards=_clean(m.away_yellow_cards),
+        home_red_cards=_clean(m.home_red_cards),
+        away_red_cards=_clean(m.away_red_cards),
+        home_corners=_clean(m.home_corners),
+        away_corners=_clean(m.away_corners),
         btts=m.btts,
         over_25=m.over_25,
         referee_id=m.referee_id,
         referee_name=ref.name if ref else None,
         stadium=m.stadium,
-        attendance=m.attendance,
+        attendance=_clean(m.attendance),
         odds_home=m.odds_home,
         odds_draw=m.odds_draw,
         odds_away=m.odds_away,
